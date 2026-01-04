@@ -1,9 +1,9 @@
 <div align="center">
-  <h1>EmailBuilder.js</h1>
+  <h1>MailKit Pro>Mail
   <p align="center">
     <a href="https://usewaypoint.github.io/email-builder-js/#sample/reservation-reminder">Demo / Playground</a>&emsp;&middot;&emsp;
-    <a href="https://www.emailbuilderjs.com">EmailBuilderJS.com</a>&emsp;&middot;&emsp;
-    <a href="https://github.com/usewaypoint/email-builder-js">GitHub</a>
+    <a href="https://www.emailbuilderjs.com">Scoppy9201.com</a>&emsp;&middot;&emsp;
+    <a href="https://github.com/scoppy9201/MailKit-Pro">GitHub</a>
   </p>
 </div>
 
