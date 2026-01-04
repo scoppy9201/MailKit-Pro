@@ -2,9 +2,9 @@
   "compilerOptions": {
     "target": "es2015",
     "module": "esnext",
-    "lib": [],
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "moduleResolution": "node",
-    "jsx": "react",
+    "jsx": "react-jsx",
     "strict": true,
     "sourceMap": true,
     "allowJs": true,

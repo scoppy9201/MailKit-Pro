@@ -16,8 +16,15 @@ type TValue = {
   samplesDrawerOpen: boolean;
 };
 
+// Initialize with configuration (supports localStorage, URL hash, etc.)
+const initialDocument = getConfiguration(window.location.hash);
+console.log('📦 Store initializing with document:', {
+  hasRows: initialDocument?.body?.rows?.length || 0,
+  source: window.location.hash ? 'hash' : 'default'
+});
+
 const editorStateStore = create<TValue>(() => ({
-  document: getConfiguration(window.location.hash),
+  document: initialDocument,
   selectedBlockId: null,
   selectedSidebarTab: 'styles',
   selectedMainTab: 'editor',
@@ -26,6 +33,34 @@ const editorStateStore = create<TValue>(() => ({
   inspectorDrawerOpen: true,
   samplesDrawerOpen: true,
 }));
+
+let saveTimeout: NodeJS.Timeout | null = null;
+editorStateStore.subscribe((state) => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  
+  saveTimeout = setTimeout(() => {
+    try {
+      const designStr = JSON.stringify(state.document);
+      localStorage.setItem('emailDesign', designStr);
+      localStorage.setItem('email-builder-design', designStr);
+      console.log('Auto-saved to localStorage');
+      
+      try {
+        const encoded = btoa(encodeURIComponent(designStr));
+        if (encoded.length < 2000) { 
+          const newHash = '#' + encoded;
+          if (window.location.hash !== newHash) {
+            history.replaceState(null, '', newHash);
+          }
+        }
+      } catch (e) {}
+    } catch (e) {
+      console.error('Auto-save error:', e);
+    }
+  }, 1000); 
+});
 
 export function useDocument() {
   return editorStateStore((s) => s.document);
@@ -77,6 +112,7 @@ export function setSidebarTab(selectedSidebarTab: TValue['selectedSidebarTab']) 
 }
 
 export function resetDocument(document: TValue['document']) {
+  console.log('resetDocument called');
   return editorStateStore.setState({
     document,
     selectedSidebarTab: 'styles',
@@ -106,4 +142,57 @@ export function toggleSamplesDrawerOpen() {
 
 export function setSelectedScreenSize(selectedScreenSize: TValue['selectedScreenSize']) {
   return editorStateStore.setState({ selectedScreenSize });
+}
+
+export function getCurrentDesign(): TEditorConfiguration {
+  return editorStateStore.getState().document;
+}
+
+export function loadDesignFromExternal(design: TEditorConfiguration): boolean {
+  console.log('loadDesignFromExternal called');
+  
+  if (!design || !design.body) {
+    console.error('Invalid design structure');
+    return false;
+  }
+  
+  try {
+    resetDocument(design);
+    const designStr = JSON.stringify(design);
+    localStorage.setItem('emailDesign', designStr);
+    localStorage.setItem('email-builder-design', designStr);
+    
+    console.log('Design loaded successfully');
+    return true;
+  } catch (e) {
+    console.error('Error loading design:', e);
+    return false;
+  }
+}
+
+export function clearDesign(): void {
+  console.log('Clearing design...');
+  
+  const emptyDesign: TEditorConfiguration = {
+    body: {
+      rows: []
+    }
+  } as TEditorConfiguration;
+  
+  resetDocument(emptyDesign);
+  
+  localStorage.removeItem('emailDesign');
+  localStorage.removeItem('email-builder-design');
+  localStorage.removeItem('__PENDING_DESIGN__');
+  
+  window.location.hash = '';
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).__EMAIL_BUILDER_STORE__ = editorStateStore;
+  (window as any).loadDesignFromExternal = loadDesignFromExternal;
+  (window as any).getCurrentDesign = getCurrentDesign;
+  (window as any).clearDesign = clearDesign;
+  
+  console.log('Store exposed to window object');
 }
