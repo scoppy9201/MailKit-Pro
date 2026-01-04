@@ -188,11 +188,76 @@ export function clearDesign(): void {
   window.location.hash = '';
 }
 
+/**
+ * Render email HTML from current design
+ * This extracts only the email content, not the UI
+ */
+export function renderEmailHtml(): string {
+  const document = editorStateStore.getState().document;
+  
+  try {
+    // Method 1: Try to get from render function if available
+    if (typeof (window as any).renderDocument === 'function') {
+      return (window as any).renderDocument(document);
+    }
+    
+    // Method 2: Get from DOM but only email content
+    const root = window.document.getElementById('root');
+    if (!root) {
+      throw new Error('Root element not found');
+    }
+    
+    // Find email wrapper div (has background-color, no Mui classes, contains table)
+    const allDivs = root.querySelectorAll('div[style]');
+    
+    for (let i = 0; i < allDivs.length; i++) {
+      const div = allDivs[i] as HTMLElement;
+      const style = div.getAttribute('style') || '';
+      const className = div.className || '';
+      
+      // Check: has background-color, NOT Mui class, has table inside
+      if (style.includes('background-color') && 
+          !className.includes('Mui') && 
+          !className.includes('css-') &&
+          div.querySelector('table[role="presentation"]')) {
+        
+        console.log('Found email content wrapper');
+        return div.outerHTML;
+      }
+    }
+    
+    // Fallback: Get table only
+    const table = root.querySelector('table[role="presentation"]');
+    if (table) {
+      console.warn('Using table fallback');
+      return table.outerHTML;
+    }
+    
+    throw new Error('Email content not found in DOM');
+    
+  } catch (error) {
+    console.error('Render error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Export both design and HTML
+*/
+export function exportEmail(): { design: TEditorConfiguration; html: string } {
+  const design = getCurrentDesign();
+  const html = renderEmailHtml();
+  
+  return { design, html };
+}
+
 if (typeof window !== 'undefined') {
   (window as any).__EMAIL_BUILDER_STORE__ = editorStateStore;
   (window as any).loadDesignFromExternal = loadDesignFromExternal;
   (window as any).getCurrentDesign = getCurrentDesign;
   (window as any).clearDesign = clearDesign;
+  (window as any).renderEmailHtml = renderEmailHtml;
+  (window as any).exportEmail = exportEmail;
   
   console.log('Store exposed to window object');
 }
