@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import getConfiguration from '../../getConfiguration';
+import EMPTY_EMAIL_MESSAGE from '../../getConfiguration/sample/empty-email-message';
 
 import { TEditorConfiguration } from './core';
 
@@ -16,9 +17,8 @@ type TValue = {
   samplesDrawerOpen: boolean;
 };
 
-// Initialize with configuration (supports localStorage, URL hash, etc.)
 const initialDocument = getConfiguration(window.location.hash);
-console.log('📦 Store initializing with document:', {
+console.log('Store initializing with document:', {
   hasRows: initialDocument?.body?.rows?.length || 0,
   source: window.location.hash ? 'hash' : 'default'
 });
@@ -173,13 +173,7 @@ export function loadDesignFromExternal(design: TEditorConfiguration): boolean {
 export function clearDesign(): void {
   console.log('Clearing design...');
   
-  const emptyDesign: TEditorConfiguration = {
-    body: {
-      rows: []
-    }
-  } as TEditorConfiguration;
-  
-  resetDocument(emptyDesign);
+  resetDocument(EMPTY_EMAIL_MESSAGE);
   
   localStorage.removeItem('emailDesign');
   localStorage.removeItem('email-builder-design');
@@ -188,49 +182,96 @@ export function clearDesign(): void {
   window.location.hash = '';
 }
 
-/**
- * Render email HTML from current design
- * This extracts only the email content, not the UI
- */
 export function renderEmailHtml(): string {
-  const document = editorStateStore.getState().document;
-  
   try {
-    // Method 1: Try to get from render function if available
-    if (typeof (window as any).renderDocument === 'function') {
-      return (window as any).renderDocument(document);
-    }
-    
-    // Method 2: Get from DOM but only email content
     const root = window.document.getElementById('root');
     if (!root) {
       throw new Error('Root element not found');
     }
+
+    const previewContainer = root.querySelector('[data-testid="email-preview"]') ||
+                            root.querySelector('[id*="preview"]') ||
+                            root.querySelector('[class*="preview"]');
     
-    // Find email wrapper div (has background-color, no Mui classes, contains table)
+    if (previewContainer) {
+      const table = previewContainer.querySelector('table[role="presentation"]');
+      if (table) {
+        console.log('Found email via preview container');
+        const wrapper = table.closest('div[style*="background"]');
+        return wrapper ? (wrapper as HTMLElement).outerHTML : table.outerHTML;
+      }
+    }
+
     const allDivs = root.querySelectorAll('div[style]');
-    
     for (let i = 0; i < allDivs.length; i++) {
       const div = allDivs[i] as HTMLElement;
       const style = div.getAttribute('style') || '';
       const className = div.className || '';
       
-      // Check: has background-color, NOT Mui class, has table inside
       if (style.includes('background-color') && 
           !className.includes('Mui') && 
           !className.includes('css-') &&
           div.querySelector('table[role="presentation"]')) {
         
-        console.log('Found email content wrapper');
+        console.log('Found email wrapper with background');
         return div.outerHTML;
       }
     }
+
+    const tables = root.querySelectorAll('table[role="presentation"]');
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i] as HTMLElement;
+      const style = table.getAttribute('style') || '';
+      const width = table.getAttribute('width');
+
+      if (table.closest('.MuiDrawer-root') ||
+          table.closest('.MuiPaper-root') ||
+          table.closest('[class*="Mui"]')) {
+        continue;
+      }
+      
+      if (width || style.includes('width')) {
+        console.log('Found email table by width');
+        const wrapper = table.closest('div[style*="background"]');
+        return wrapper ? (wrapper as HTMLElement).outerHTML : table.outerHTML;
+      }
+    }
     
-    // Fallback: Get table only
-    const table = root.querySelector('table[role="presentation"]');
-    if (table) {
-      console.warn('Using table fallback');
-      return table.outerHTML;
+    let maxTextLength = 0;
+    let bestTable = null;
+    
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i] as HTMLElement;
+      
+      if (table.closest('.MuiDrawer-root') || 
+          table.closest('[class*="Mui"]') ||
+          table.closest('[class*="toolbar"]') ||
+          table.closest('[class*="inspector"]')) {
+        continue;
+      }
+      
+      const textLength = (table.textContent || '').length;
+      if (textLength > maxTextLength) {
+        maxTextLength = textLength;
+        bestTable = table;
+      }
+    }
+    
+    if (bestTable) {
+      console.log('Found email by max content length:', maxTextLength);
+      const wrapper = bestTable.closest('div[style*="background"]');
+      return wrapper ? (wrapper as HTMLElement).outerHTML : bestTable.outerHTML;
+    }
+
+    const firstValidTable = Array.from(tables).find(table => 
+      !table.closest('.MuiDrawer-root') && 
+      !table.closest('[class*="Mui"]')
+    ) as HTMLElement | undefined;
+    
+    if (firstValidTable) {
+      console.warn('Using first valid table fallback');
+      const wrapper = firstValidTable.closest('div[style*="background"]');
+      return wrapper ? (wrapper as HTMLElement).outerHTML : firstValidTable.outerHTML;
     }
     
     throw new Error('Email content not found in DOM');
@@ -241,12 +282,25 @@ export function renderEmailHtml(): string {
   }
 }
 
-/**
- * Export both design and HTML
-*/
 export function exportEmail(): { design: TEditorConfiguration; html: string } {
   const design = getCurrentDesign();
   const html = renderEmailHtml();
+  
+  console.log('📦 Export result:', {
+    htmlLength: html.length,
+    htmlPreview: html.substring(0, 150) + '...',
+    hasMuiClass: html.includes('Mui'),
+    hasWrapper: html.includes('<div') && html.includes('background')
+  });
+
+  if (html.includes('MuiDrawer') || html.includes('MuiPaper')) {
+    console.error('WARNING: Exported HTML contains UI elements!');
+    throw new Error('Export failed: HTML contains builder UI elements');
+  }
+
+  if (!html.includes('<div') || !html.includes('background')) {
+    console.warn('WARNING: Email may be missing wrapper div with background');
+  }
   
   return { design, html };
 }
