@@ -11,25 +11,70 @@ import WELCOME from './sample/welcome';
 export default function getConfiguration(template: string) {
   console.log('getConfiguration called with template:', template?.substring(0, 50));
 
-  // PRIORITY 1: Check for pending design from Laravel
-  // This is set when Laravel loads a saved template
   try {
     const pendingDesign = localStorage.getItem('__PENDING_DESIGN__');
     if (pendingDesign) {
       console.log('Found __PENDING_DESIGN__ from Laravel');
       
-      const config = JSON.parse(pendingDesign);
+      let config = JSON.parse(pendingDesign);
       
-      // Clear pending design after loading
+      if (config.root && !config.body) {
+        console.log('Converting old format (root) to new format (body)');
+        
+        if (config.root.type === 'EmailLayout') {
+          const rootData = config.root.data || {};
+          const rootChildren = config.root.children || [];
+          
+          config = {
+            body: {
+              type: 'Body',
+              data: {
+                backdropColor: rootData.backdropColor || '#F5F5F5',
+                canvasColor: rootData.canvasColor || '#FFFFFF',
+                textColor: rootData.textColor || '#262626',
+                fontFamily: rootData.fontFamily || 'MODERN_SANS'
+              },
+              rows: rootChildren.map((child: any, idx: number) => ({
+                id: `row-${idx}`,
+                type: child.type || 'Row',
+                data: child.data || {},
+                children: child.children || []
+              }))
+            }
+          };
+        } else {
+          config = {
+            body: config.root
+          };
+        }
+        
+        console.log('Converted to new format');
+      }
+      
+      if (!config.body) {
+        console.error('No body in config, creating empty');
+        config.body = { rows: [] };
+      }
+      if (!config.body.rows) {
+        console.error('No rows in body, creating empty array');
+        config.body.rows = [];
+      }
+      
+      console.log('Loaded design from Laravel:', {
+        hasBody: !!config.body,
+        rowsCount: config.body.rows.length
+      });
+      
       localStorage.removeItem('__PENDING_DESIGN__');
       
       // Save to standard keys for persistence
-      localStorage.setItem('emailDesign', pendingDesign);
-      localStorage.setItem('email-builder-design', pendingDesign);
+      const configStr = JSON.stringify(config);
+      localStorage.setItem('emailDesign', configStr);
+      localStorage.setItem('email-builder-design', configStr);
       
       // Update URL hash for bookmarking
       try {
-        const encoded = btoa(encodeURIComponent(pendingDesign));
+        const encoded = btoa(encodeURIComponent(configStr));
         if (encoded.length < 2000) {
           window.location.hash = '#code/' + encoded;
         }
@@ -37,17 +82,17 @@ export default function getConfiguration(template: string) {
         console.warn('Cannot update hash:', e);
       }
       
-      console.log('Loaded design from Laravel');
       return config;
+    } else {
+      console.log('No __PENDING_DESIGN__ found');
     }
   } catch (e) {
-    console.warn('Error loading __PENDING_DESIGN__:', e);
+    console.error('Error loading __PENDING_DESIGN__:', e);
   }
 
-  // PRIORITY 2: Sample templates
-  if (template.startsWith('#sample/')) {
+  if (template && template.startsWith('#sample/')) {
     const sampleName = template.replace('#sample/', '');
-    console.log('📦 Loading sample:', sampleName);
+    console.log('Loading sample:', sampleName);
     
     switch (sampleName) {
       case 'welcome':
@@ -69,8 +114,7 @@ export default function getConfiguration(template: string) {
     }
   }
 
-  // PRIORITY 3: URL hash with encoded design
-  if (template.startsWith('#code/')) {
+  if (template && template.startsWith('#code/')) {
     const encodedString = template.replace('#code/', '');
     console.log('Loading from URL hash');
     
@@ -85,11 +129,10 @@ export default function getConfiguration(template: string) {
       console.log('Loaded from URL hash');
       return config;
     } catch (e) {
-      console.error(`Couldn't load configuration from hash:`, e);
+      console.error('Couldn\'t load configuration from hash:', e);
     }
   }
 
-  // PRIORITY 4: Load from localStorage (existing saved work)
   try {
     const savedDesign = localStorage.getItem('emailDesign') || 
                        localStorage.getItem('email-builder-design');
@@ -98,6 +141,16 @@ export default function getConfiguration(template: string) {
       console.log('Loading from localStorage');
       
       const config = JSON.parse(savedDesign);
+      
+      if (!config.body || !config.body.rows) {
+        console.warn('Invalid localStorage structure, using default');
+        throw new Error('Invalid structure');
+      }
+      
+      console.log('Loaded from localStorage:', {
+        hasBody: !!config.body,
+        rowsCount: config.body.rows.length
+      });
       
       // Update URL hash if not already set
       if (!template || template === '') {
@@ -111,14 +164,12 @@ export default function getConfiguration(template: string) {
         }
       }
       
-      console.log('Loaded from localStorage');
       return config;
     }
   } catch (e) {
     console.warn('Error loading from localStorage:', e);
   }
 
-  // PRIORITY 5: Default empty template
-  console.log('ℹUsing default empty template');
+  console.log('Using default empty template');
   return EMPTY_EMAIL_MESSAGE;
 }
