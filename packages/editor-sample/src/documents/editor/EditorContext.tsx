@@ -333,24 +333,61 @@ export function renderEmailHtml(): string {
 
 export function exportEmail(): { design: TEditorConfiguration; html: string } {
   const design = getCurrentDesign();
-  const html = renderEmailHtml();
+  let html = renderEmailHtml();
   
-  console.log('Export result:', {
+  console.log('Export result (before cleaning):', {
     htmlLength: html.length,
-    htmlPreview: html.substring(0, 150) + '...',
     hasMuiClass: html.includes('Mui'),
-    hasWrapper: html.includes('<div') && html.includes('background')
   });
 
-  if (html.includes('MuiDrawer') || html.includes('MuiPaper')) {
-    console.error('WARNING: Exported HTML contains UI elements!');
-    throw new Error('Export failed: HTML contains builder UI elements');
+  if (html.includes('Mui') || html.includes('css-')) {
+    console.log('HTML contains UI elements, cleaning...');
+
+    let previousLength = '';
+    let maxIterations = 5;
+    
+    // Keep cleaning until no more changes or max iterations
+    while (html !== previousLength && maxIterations > 0) {
+      previousLength = html;
+      
+      // Pass 1: Remove divs with Mui classes (non-greedy)
+      html = html.replace(/<div[^>]*class="[^"]*Mui[^"]*"[^>]*>(?:(?!<div).)*?<\/div>/gi, '');
+      html = html.replace(/<div[^>]*class="[^"]*css-[^"]*"[^>]*>(?:(?!<div).)*?<\/div>/gi, '');
+      
+      // Pass 2: Remove position relative wrappers
+      html = html.replace(/<div style="position:\s*relative;">\s*&nbsp;\s*<\/div>/gi, '');
+      html = html.replace(/<div style="position:\s*relative;">\s*<\/div>/gi, '');
+      
+      // Pass 3: Remove any remaining class references
+      html = html.replace(/class="[^"]*(?:Mui|css-)[^"]*"/gi, '');
+      
+      // Pass 4: Remove empty divs
+      html = html.replace(/<div[^>]*>\s*<\/div>/gi, '');
+      
+      maxIterations--;
+    }
+    
+    // Pass 5: Final cleanup - whitespace
+    html = html.replace(/(\r?\n\s*){3,}/g, '\n\n');
+    html = html.replace(/>\s+</g, '><');
+    
+    console.log('Cleaned HTML:', {
+      htmlLength: html.length,
+      hasMuiClass: html.includes('Mui'),
+      iterations: 5 - maxIterations
+    });
   }
 
-  if (!html.includes('<div') || !html.includes('background')) {
-    console.warn('WARNING: Email may be missing wrapper div with background');
+  if (html.includes('MuiDrawer') || html.includes('MuiPaper')) {
+    console.warn('WARNING: Some UI elements may remain in HTML');
+  }
+
+  if (!html.includes('<table')) {
+    console.error('ERROR: No table found in HTML!');
+    throw new Error('Export failed: No email table found');
   }
   
+  console.log('Export successful:', html.length, 'chars');
   return { design, html };
 }
 
