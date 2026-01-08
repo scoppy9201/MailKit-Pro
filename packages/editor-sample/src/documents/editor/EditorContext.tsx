@@ -151,12 +151,23 @@ export function getCurrentDesign(): TEditorConfiguration {
 export function loadDesignFromExternal(design: TEditorConfiguration): boolean {
   console.log('loadDesignFromExternal called');
   
-  if (!design || !design.body) {
-    console.error('Invalid design structure');
+  if (!design) {
+    console.error('Invalid design structure: design is null/undefined');
+    return false;
+  }
+  
+  // Check if has valid structure
+  const hasBody = design.body && typeof design.body === 'object';
+  const hasRoot = design.root && typeof design.root === 'object';
+  
+  if (!hasBody && !hasRoot) {
+    console.error('Invalid design structure: missing both body and root');
     return false;
   }
   
   try {
+    console.log('Design structure:', { hasBody, hasRoot });
+    
     resetDocument(design);
     const designStr = JSON.stringify(design);
     localStorage.setItem('emailDesign', designStr);
