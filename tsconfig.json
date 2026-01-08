@@ -5,18 +5,24 @@
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "moduleResolution": "node",
     "jsx": "react-jsx",
+
     "strict": true,
     "sourceMap": true,
     "allowJs": true,
     "esModuleInterop": true,
-
     "skipLibCheck": true,
-    "declarationMap": true,
-    "declaration": true,
+
     "noUnusedLocals": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+
+    "declaration": false,
+    "declarationMap": false
   },
-  "exclude": ["dist"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/dist"
+  ]
 }

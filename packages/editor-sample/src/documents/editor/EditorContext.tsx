@@ -200,6 +200,25 @@ export function renderEmailHtml(): string {
       throw new Error('Root element not found');
     }
 
+    console.log('Searching for email content...');
+
+    // Helper function to clean HTML
+    const cleanHtml = (element: HTMLElement): string => {
+      const clone = element.cloneNode(true) as HTMLElement;
+      
+      // Remove all MUI elements
+      clone.querySelectorAll('[class*="Mui"]').forEach(el => el.remove());
+      clone.querySelectorAll('[class*="css-"]').forEach(el => el.remove());
+      
+      // Remove inspector/toolbar elements
+      clone.querySelectorAll('[class*="inspector"]').forEach(el => el.remove());
+      clone.querySelectorAll('[class*="toolbar"]').forEach(el => el.remove());
+      clone.querySelectorAll('[class*="styles"]').forEach(el => el.remove());
+      
+      return clone.outerHTML;
+    };
+
+    // Strategy 1: Find preview container
     const previewContainer = root.querySelector('[data-testid="email-preview"]') ||
                             root.querySelector('[id*="preview"]') ||
                             root.querySelector('[class*="preview"]');
@@ -209,10 +228,14 @@ export function renderEmailHtml(): string {
       if (table) {
         console.log('Found email via preview container');
         const wrapper = table.closest('div[style*="background"]');
-        return wrapper ? (wrapper as HTMLElement).outerHTML : table.outerHTML;
+        if (wrapper) {
+          return cleanHtml(wrapper as HTMLElement);
+        }
+        return table.outerHTML;
       }
     }
 
+    // Strategy 2: Find div with background that contains table
     const allDivs = root.querySelectorAll('div[style]');
     for (let i = 0; i < allDivs.length; i++) {
       const div = allDivs[i] as HTMLElement;
@@ -225,35 +248,43 @@ export function renderEmailHtml(): string {
           div.querySelector('table[role="presentation"]')) {
         
         console.log('Found email wrapper with background');
-        return div.outerHTML;
+        return cleanHtml(div);
       }
     }
 
+    // Strategy 3: Find table by attributes
     const tables = root.querySelectorAll('table[role="presentation"]');
     for (let i = 0; i < tables.length; i++) {
       const table = tables[i] as HTMLElement;
       const style = table.getAttribute('style') || '';
       const width = table.getAttribute('width');
 
+      // Skip UI tables
       if (table.closest('.MuiDrawer-root') ||
           table.closest('.MuiPaper-root') ||
           table.closest('[class*="Mui"]')) {
+        console.log('Skipping UI table');
         continue;
       }
       
       if (width || style.includes('width')) {
         console.log('Found email table by width');
         const wrapper = table.closest('div[style*="background"]');
-        return wrapper ? (wrapper as HTMLElement).outerHTML : table.outerHTML;
+        if (wrapper) {
+          return cleanHtml(wrapper as HTMLElement);
+        }
+        return table.outerHTML;
       }
     }
     
+    // Strategy 4: Find table with most content
     let maxTextLength = 0;
-    let bestTable = null;
+    let bestTable: HTMLElement | null = null;
     
     for (let i = 0; i < tables.length; i++) {
       const table = tables[i] as HTMLElement;
       
+      // Skip UI tables
       if (table.closest('.MuiDrawer-root') || 
           table.closest('[class*="Mui"]') ||
           table.closest('[class*="toolbar"]') ||
@@ -271,9 +302,13 @@ export function renderEmailHtml(): string {
     if (bestTable) {
       console.log('Found email by max content length:', maxTextLength);
       const wrapper = bestTable.closest('div[style*="background"]');
-      return wrapper ? (wrapper as HTMLElement).outerHTML : bestTable.outerHTML;
+      if (wrapper) {
+        return cleanHtml(wrapper as HTMLElement);
+      }
+      return bestTable.outerHTML;
     }
 
+    // Strategy 5: Fallback - first valid table
     const firstValidTable = Array.from(tables).find(table => 
       !table.closest('.MuiDrawer-root') && 
       !table.closest('[class*="Mui"]')
@@ -282,7 +317,10 @@ export function renderEmailHtml(): string {
     if (firstValidTable) {
       console.warn('Using first valid table fallback');
       const wrapper = firstValidTable.closest('div[style*="background"]');
-      return wrapper ? (wrapper as HTMLElement).outerHTML : firstValidTable.outerHTML;
+      if (wrapper) {
+        return cleanHtml(wrapper as HTMLElement);
+      }
+      return firstValidTable.outerHTML;
     }
     
     throw new Error('Email content not found in DOM');
@@ -297,7 +335,7 @@ export function exportEmail(): { design: TEditorConfiguration; html: string } {
   const design = getCurrentDesign();
   const html = renderEmailHtml();
   
-  console.log('📦 Export result:', {
+  console.log('Export result:', {
     htmlLength: html.length,
     htmlPreview: html.substring(0, 150) + '...',
     hasMuiClass: html.includes('Mui'),
