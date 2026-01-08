@@ -332,63 +332,94 @@ export function renderEmailHtml(): string {
 }
 
 export function exportEmail(): { design: TEditorConfiguration; html: string } {
-  const design = getCurrentDesign();
-  let html = renderEmailHtml();
-  
-  console.log('Export result (before cleaning):', {
-    htmlLength: html.length,
-    hasMuiClass: html.includes('Mui'),
-  });
-
-  if (html.includes('Mui') || html.includes('css-')) {
-    console.log('HTML contains UI elements, cleaning...');
-
-    let previousLength = '';
-    let maxIterations = 5;
+  try {
+    console.log('Starting email export...');
     
-    // Keep cleaning until no more changes or max iterations
-    while (html !== previousLength && maxIterations > 0) {
-      previousLength = html;
-      
-      // Pass 1: Remove divs with Mui classes (non-greedy)
-      html = html.replace(/<div[^>]*class="[^"]*Mui[^"]*"[^>]*>(?:(?!<div).)*?<\/div>/gi, '');
-      html = html.replace(/<div[^>]*class="[^"]*css-[^"]*"[^>]*>(?:(?!<div).)*?<\/div>/gi, '');
-      
-      // Pass 2: Remove position relative wrappers
-      html = html.replace(/<div style="position:\s*relative;">\s*&nbsp;\s*<\/div>/gi, '');
-      html = html.replace(/<div style="position:\s*relative;">\s*<\/div>/gi, '');
-      
-      // Pass 3: Remove any remaining class references
-      html = html.replace(/class="[^"]*(?:Mui|css-)[^"]*"/gi, '');
-      
-      // Pass 4: Remove empty divs
-      html = html.replace(/<div[^>]*>\s*<\/div>/gi, '');
-      
-      maxIterations--;
+    const design = getCurrentDesign();
+    if (!design) {
+      throw new Error('Design is empty or invalid');
     }
     
-    // Pass 5: Final cleanup - whitespace
-    html = html.replace(/(\r?\n\s*){3,}/g, '\n\n');
-    html = html.replace(/>\s+</g, '><');
+    let html = renderEmailHtml();
     
-    console.log('Cleaned HTML:', {
+    console.log('Export result (before cleaning):', {
       htmlLength: html.length,
       hasMuiClass: html.includes('Mui'),
-      iterations: 5 - maxIterations
     });
-  }
 
-  if (html.includes('MuiDrawer') || html.includes('MuiPaper')) {
-    console.warn('WARNING: Some UI elements may remain in HTML');
-  }
+    // AGGRESSIVE CLEANING
+    if (html.includes('Mui') || html.includes('css-')) {
+      console.log('🧹 HTML contains UI elements, cleaning...');
 
-  if (!html.includes('<table')) {
-    console.error('ERROR: No table found in HTML!');
-    throw new Error('Export failed: No email table found');
+      let previousLength = '';
+      let maxIterations = 10; // Tăng từ 5 lên 10
+      
+      while (html !== previousLength && maxIterations > 0) {
+        previousLength = html;
+        
+        // Remove Mui classes
+        html = html.replace(/<div[^>]*class="[^"]*Mui[^"]*"[^>]*>(?:(?!<div).)*?<\/div>/gi, '');
+        html = html.replace(/<div[^>]*class="[^"]*css-[^"]*"[^>]*>(?:(?!<div).)*?<\/div>/gi, '');
+        
+        // Remove inspector/toolbar
+        html = html.replace(/<div[^>]*class="[^"]*inspector[^"]*"[^>]*>.*?<\/div>/gi, '');
+        html = html.replace(/<div[^>]*class="[^"]*toolbar[^"]*"[^>]*>.*?<\/div>/gi, '');
+        html = html.replace(/<div[^>]*class="[^"]*styles[^"]*"[^>]*>.*?<\/div>/gi, '');
+        
+        // Remove position wrappers
+        html = html.replace(/<div style="position:\s*relative;">\s*&nbsp;\s*<\/div>/gi, '');
+        html = html.replace(/<div style="position:\s*relative;">\s*<\/div>/gi, '');
+        
+        // Remove class references
+        html = html.replace(/class="[^"]*(?:Mui|css-)[^"]*"/gi, '');
+        
+        // Remove empty divs
+        html = html.replace(/<div[^>]*>\s*<\/div>/gi, '');
+        
+        maxIterations--;
+      }
+      
+      // Final whitespace cleanup
+      html = html.replace(/(\r?\n\s*){3,}/g, '\n\n');
+      html = html.replace(/>\s+</g, '><');
+      
+      console.log('Cleaned HTML:', {
+        htmlLength: html.length,
+        hasMuiClass: html.includes('Mui'),
+        iterations: 10 - maxIterations
+      });
+    }
+
+    if (html.includes('MuiDrawer') || html.includes('MuiPaper')) {
+      console.error('WARNING: Critical UI elements found!');
+      throw new Error('Export failed: HTML contains MuiDrawer/MuiPaper');
+    }
+
+    if (!html.includes('<table')) {
+      console.error(' ERROR: No table found!');
+      throw new Error('Export failed: No email table found');
+    }
+
+    const textContent = html.replace(/<[^>]*>/g, '').trim();
+    if (textContent.length === 0) {
+      console.error('ERROR: HTML has no text content!');
+      throw new Error('Export failed: HTML has no content');
+    }
+    
+    console.log('Export successful:', {
+      htmlSize: (html.length / 1024).toFixed(2) + ' KB',
+      textLength: textContent.length,
+      designSize: (JSON.stringify(design).length / 1024).toFixed(2) + ' KB',
+      hasTable: html.includes('<table'),
+      hasBackground: html.includes('background')
+    });
+    
+    return { design, html };
+    
+  } catch (error) {
+    console.error('Export failed:', error);
+    throw error;
   }
-  
-  console.log('Export successful:', html.length, 'chars');
-  return { design, html };
 }
 
 if (typeof window !== 'undefined') {
