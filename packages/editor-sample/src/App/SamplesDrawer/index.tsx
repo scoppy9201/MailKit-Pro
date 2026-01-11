@@ -1,3 +1,5 @@
+import React from 'react';
+
 import { Drawer, Stack } from '@mui/material';
 
 import { useSamplesDrawerOpen } from '../../documents/editor/EditorContext';
