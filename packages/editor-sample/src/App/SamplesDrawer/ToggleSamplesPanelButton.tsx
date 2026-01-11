@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { FirstPageOutlined, MenuOutlined } from '@mui/icons-material';
 import { IconButton } from '@mui/material';
 
