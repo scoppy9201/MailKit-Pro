@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { MonitorOutlined, PhoneIphoneOutlined } from '@mui/icons-material';
 import { Box, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import { Reader } from '@usewaypoint/email-builder';
@@ -35,8 +33,9 @@ export default function TemplatePanel() {
       margin: '32px auto',
       width: 370,
       height: 800,
-      boxShadow:
-        'rgba(33, 36, 67, 0.04) 0px 10px 20px, rgba(33, 36, 67, 0.04) 0px 2px 6px, rgba(33, 36, 67, 0.04) 0px 0px 1px',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+      borderRadius: '16px',
+      overflow: 'hidden',
     };
   }
 
@@ -77,44 +76,103 @@ export default function TemplatePanel() {
       <Stack
         sx={{
           height: 49,
-          borderBottom: 1,
-          borderColor: 'divider',
-          backgroundColor: 'white',
+          borderBottom: '1px solid var(--crm-border)',
+          background: 'var(--crm-surface)',
           position: 'sticky',
           top: 0,
           zIndex: 'appBar',
-          px: 1,
+          px: 1.5,
         }}
         direction="row"
         justifyContent="space-between"
         alignItems="center"
       >
-        <ToggleSamplesPanelButton />
-        <Stack px={2} direction="row" gap={2} width="100%" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" spacing={2}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ToggleSamplesPanelButton />
+        </Box>
+
+        <Stack direction="row" alignItems="center" gap={1.5} sx={{ flex: 1, px: 2, flexWrap: 'nowrap', minWidth: 0 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '4px' }}>
             <MainTabsGroup />
-          </Stack>
-          <Stack direction="row" spacing={2}>
+          </Box>
+
+          <Box sx={{ width: '1px', height: 24, background: 'var(--crm-border)', flexShrink: 0 }} />
+
+            <ToggleButtonGroup
+              value={selectedScreenSize}
+              exclusive
+              size="small"
+              onChange={handleScreenSizeChange}
+              sx={{
+                borderRadius: '8px',
+                overflow: 'hidden',
+                border: '1px solid var(--crm-border)',
+                '& .MuiToggleButton-root': {
+                  border: 'none',
+                  borderRadius: '0 !important',
+                  color: 'var(--crm-text-2)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  textTransform: 'none',
+                  px: 1.5,
+                  py: 0.6,
+                  gap: 0.5,
+                  '&:hover': {
+                    background: 'var(--crm-border)',
+                    color: 'var(--crm-text-1)',
+                  },
+                  '&.Mui-selected': {
+                    background: 'var(--brand-color-alpha12)',
+                    color: 'var(--brand-color)',
+                    '&:hover': {
+                      background: 'var(--brand-color-alpha20)',
+                    },
+                  },
+                },
+              }}
+            >
+            <ToggleButton value="desktop">
+              <Tooltip title="Desktop view">
+                <Stack direction="row" alignItems="center" gap={0.5}>
+                  <MonitorOutlined sx={{ fontSize: 15 }} />
+                  <span>Desktop</span>
+                </Stack>
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="mobile">
+              <Tooltip title="Mobile view">
+                <Stack direction="row" alignItems="center" gap={0.5}>
+                  <PhoneIphoneOutlined sx={{ fontSize: 15 }} />
+                  <span>Mobile</span>
+                </Stack>
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          <Box sx={{ flex: 1 }} />
+
+          <Stack direction="row" spacing={1} alignItems="center">
             <DownloadJson />
             <ImportJson />
-            <ToggleButtonGroup value={selectedScreenSize} exclusive size="small" onChange={handleScreenSizeChange}>
-              <ToggleButton value="desktop">
-                <Tooltip title="Desktop view">
-                  <MonitorOutlined fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="mobile">
-                <Tooltip title="Mobile view">
-                  <PhoneIphoneOutlined fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
             <ShareButton />
           </Stack>
         </Stack>
-        <ToggleInspectorPanelButton />
+
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <ToggleInspectorPanelButton />
+        </Box>
       </Stack>
-      <Box sx={{ height: 'calc(100vh - 49px)', overflow: 'auto', minWidth: 370 }}>{renderMainPanel()}</Box>
+
+      <Box
+        sx={{
+          height: 'calc(100vh - 49px)',
+          overflow: 'auto',
+          minWidth: 370,
+          background: 'var(--crm-bg)',
+        }}
+      >
+        {renderMainPanel()}
+      </Box>
     </>
   );
 }
