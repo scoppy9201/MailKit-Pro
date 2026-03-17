@@ -1,9 +1,9 @@
 <div align="center">
-  <h1>Builder</h1>
+  <h1>Craftify Builder</h1>
   <p align="center">
     <a href="#">Demo / Playground</a>&emsp;&middot;&emsp;
     <a href="#">Scoppy9201.com</a>&emsp;&middot;&emsp;
-    <a href="https://github.com/scoppy9201/FormKit">GitHub</a>
+    <a href="https://github.com/scoppy9201/Craftify">GitHub</a>
   </p>
 </div>
 
@@ -118,7 +118,7 @@ const html = render(CONFIGURATION);
 ## Self hosting
 
 ```bash
-git clone https://github.com/scoppy9201/Craftify .git
+git clone https://github.com/scoppy9201/Craftify.git
 cd FormKit
 npm install
 npm run dev
